@@ -61,3 +61,17 @@ def preparer_donnees(df):
     X = pd.get_dummies(X, columns=cols_onehot, drop_first=True, dtype=int)
 
     return X, y
+
+def ajouter_features(X):
+    X = X.copy()
+
+    X["revenu_par_experience"] = X["revenu_mensuel"] / (X["annee_experience_totale"] + 1)
+    X["stagnation"] = X["annees_depuis_la_derniere_promotion"] / (X["annees_dans_l_entreprise"] + 1)
+    X["satisfaction_moyenne"] = X[[
+        "satisfaction_employee_environnement",
+        "satisfaction_employee_nature_travail",
+        "satisfaction_employee_equipe",
+        "satisfaction_employee_equilibre_pro_perso",
+    ]].mean(axis=1)
+
+    return X
