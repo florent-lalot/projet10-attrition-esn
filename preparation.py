@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 def charger_donnees():
     # 1. Lecture
@@ -75,3 +76,11 @@ def ajouter_features(X):
     ]].mean(axis=1)
 
     return X
+
+def separer_train_test(X, y):
+    return train_test_split(
+        X, y,
+        test_size=0.2,
+        stratify=y,
+        random_state=42
+    )
