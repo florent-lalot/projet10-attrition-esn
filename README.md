@@ -32,3 +32,17 @@ uv sync
 et installe les dépendances listées dans `pyproject.toml`.
 Pour ouvrir les notebooks, sélectionner le noyau `.venv` du projet dans VS Code
 ou Jupyter.
+
+## Gestion de l'environnement : pourquoi uv
+
+Le projet utilise [uv](https://docs.astral.sh/uv/) pour gérer l'environnement Python et les dépendances.
+
+- **Reproductibilité :** `pyproject.toml` liste les bibliothèques utilisées, et `uv.lock` fige la version exacte de chacune, y compris leurs dépendances indirectes. Toute personne qui clone le dépôt obtient le même environnement, donc les mêmes résultats.
+- **Isolation :** les bibliothèques sont installées dans un environnement virtuel propre au projet (`.venv`), sans toucher au Python du système ni aux autres projets.
+- **Simplicité :** une seule commande, `uv sync`, crée l'environnement et installe tout. `uv add <bibliothèque>` ajoute une dépendance et met à jour les deux fichiers.
+
+Un simple `requirements.txt` avec pip ne fige pas les dépendances indirectes. Poetry remplit le même rôle que uv ; uv a été retenu pour sa rapidité et parce qu'il gère aussi l'installation de la version de Python.
+
+### Installation
+
+    uv sync
