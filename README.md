@@ -60,6 +60,57 @@ uv sync
 `uv sync` crée l'environnement virtuel `.venv` avec la bonne version de Python
 et installe les dépendances listées dans `pyproject.toml`.
 
+## Base de données PostgreSQL (mission facultative)
+
+Les trois fichiers RH bruts (`data/extrait_sirh.csv`, `extrait_eval.csv`, `extrait_sondage.csv`) sont aussi chargés dans une base PostgreSQL, hébergée dans un conteneur Docker dédié.
+
+**Tables**
+
+| Table        | Clé primaire                   | Contenu                                           |
+| ------------ | ------------------------------ | ------------------------------------------------- |
+| `sirh`       | `id_employee`                  | données administratives                           |
+| `evaluation` | `eval_number` (ex. `E_12`)     | satisfaction, évaluations, heures supplémentaires |
+| `sondage`    | `code_sondage` (ex. `0000012`) | variable cible, formations, déplacements          |
+
+Les tables contiennent la donnée **brute**, telle que partagée par le SIRH (noms de colonnes et fautes de frappe compris). Dans `evaluation` et `sondage`, la colonne `id_employee` est calculée à partir de l'identifiant texte (`E_12` et `0000012` donnent `12`) et sert de clé étrangère vers `sirh`.
+
+### 1. Créer le conteneur
+
+Remplacer `MOT_DE_PASSE` par un mot de passe de son choix (à ne jamais versionner) :
+
+```powershell
+docker run -d --name p10-postgres -e POSTGRES_PASSWORD=MOT_DE_PASSE -e POSTGRES_DB=attrition_esn -p 5434:5432 -v p10_pgdata:/var/lib/postgresql/data postgres:15-alpine
+```
+
+### 2. Créer les tables
+
+```powershell
+Get-Content .\sql\01_creation_tables.sql -Raw | docker exec -i p10-postgres psql -U postgres -d attrition_esn
+```
+
+### 3. Charger les données
+
+Copier les fichiers dans le conteneur, puis les charger. `sirh` d'abord, car les deux autres tables ont une clé étrangère vers elle.
+
+```powershell
+docker cp .\data\extrait_sirh.csv p10-postgres:/tmp/extrait_sirh.csv
+docker cp .\data\extrait_eval.csv p10-postgres:/tmp/extrait_eval.csv
+docker cp .\data\extrait_sondage.csv p10-postgres:/tmp/extrait_sondage.csv
+
+docker exec -it p10-postgres psql -U postgres -d attrition_esn -c "\copy sirh FROM '/tmp/extrait_sirh.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+docker exec -it p10-postgres psql -U postgres -d attrition_esn -c "\copy evaluation (satisfaction_employee_environnement,note_evaluation_precedente,niveau_hierarchique_poste,satisfaction_employee_nature_travail,satisfaction_employee_equipe,satisfaction_employee_equilibre_pro_perso,eval_number,note_evaluation_actuelle,heure_supplementaires,augementation_salaire_precedente) FROM '/tmp/extrait_eval.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+docker exec -it p10-postgres psql -U postgres -d attrition_esn -c "\copy sondage (a_quitte_l_entreprise,nombre_participation_pee,nb_formations_suivies,nombre_employee_sous_responsabilite,code_sondage,distance_domicile_travail,niveau_education,domaine_etude,ayant_enfants,frequence_deplacement,annees_depuis_la_derniere_promotion,annes_sous_responsable_actuel) FROM '/tmp/extrait_sondage.csv' WITH (FORMAT csv, HEADER true, ENCODING 'UTF8')"
+```
+
+### 4. Vérifier
+
+```powershell
+docker exec -it p10-postgres psql -U postgres -d attrition_esn -c "SELECT * FROM sirh LIMIT 10"
+docker exec -it p10-postgres psql -U postgres -d attrition_esn -c "SELECT COUNT(*) FROM sirh s JOIN evaluation e USING (id_employee) JOIN sondage d USING (id_employee)"
+```
+
+Résultat attendu : 1470 lignes dans chaque table, et 1470 pour la jointure des trois tables.
+
 ## Utilisation
 
 Ouvrir les notebooks dans VS Code ou Jupyter, sélectionner le noyau `.venv`
